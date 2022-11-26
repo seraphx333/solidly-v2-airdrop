@@ -243,7 +243,7 @@ def step_06(allBalances):
                 allBalances[token][recipient.lower()] += balance
     return sortBalances(allBalances)
     
-@cached('snapshot/07-unburned.toml')
+@cached('snapshot/07-with-unburned.toml')
 def step_07(allBalances):
     multisigAirdrop = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     multisigAuction = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
