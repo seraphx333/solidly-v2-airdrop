@@ -245,8 +245,8 @@ def step_06(allBalances):
     
 @cached('snapshot/07-unburned.toml')
 def step_07(allBalances):
-    multisigAirdrop = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5"
-    multisigAuction = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5"
+    multisigAirdrop = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+    multisigAuction = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     merkleTotals = {}
 
     # Calculate merkle totals
@@ -302,12 +302,38 @@ def step_07(allBalances):
     print("result", unburnedOxSolid)
     print()
 
+
+
     print("Distribute unburned veNFT:", unburnedNft / 10**18, multisigAuction)
+    if allBalances['veNFT'].get(multisigAuction) == None:
+        allBalances['veNFT'][multisigAuction] = 0
+    allBalances['veNFT'][multisigAuction] += unburnedNft
+
     print("Distribute unburned SOLID:", unburnedSolid / 10**18, multisigAuction)
+    if allBalances['SOLID'].get(multisigAuction) == None:
+        allBalances['SOLID'][multisigAuction] = 0
+    allBalances['SOLID'][multisigAuction] += unburnedSolid
+    
     print("Distribute unburned SEX:", unburnedSex / 10**18, multisigAirdrop)
+    if allBalances['SEX'].get(multisigAirdrop) == None:
+        allBalances['SEX'][multisigAirdrop] = 0
+    allBalances['SEX'][multisigAirdrop] += unburnedSex
+    
     print("Distribute unburned OXD:", unburnedOxd / 10**18, multisigAirdrop)
+    if allBalances['OXD'].get(multisigAirdrop) == None:
+        allBalances['OXD'][multisigAirdrop] = 0
+    allBalances['OXD'][multisigAirdrop] += unburnedOxd
+    
     print("Distribute unburned oxSOLID:", unburnedOxSolid / 10**18, multisigAirdrop)
+    if allBalances['oxSOLID'].get(multisigAirdrop) == None:
+        allBalances['oxSOLID'][multisigAirdrop] = 0
+    allBalances['oxSOLID'][multisigAirdrop] += unburnedOxSolid
+    
     print("Distribute unburned solidSEX:", unburnedSolidSex / 10**18, multisigAirdrop)
+    if allBalances['solidSEX'].get(multisigAirdrop) == None:
+        allBalances['solidSEX'][multisigAirdrop] = 0
+    allBalances['solidSEX'][multisigAirdrop] += unburnedSolidSex
+    return allBalances
 
 class MerkleTree:
     def __init__(self, elements):
@@ -396,7 +422,7 @@ def main():
     vlsex_balances = step_04()
     combined_balances = step_05(balances_after_escrow, vloxd_balances, vlsex_balances)
     remapped_balances =step_06(combined_balances)
-    remapped_and_adjusted_balances =step_07(remapped_balances)
+    remapped_and_unburned_balances = step_07(remapped_balances)
     # merkle_venft(combined_balances['veNFT'])
     # merkle_oxsolid(combined_balances['oxSOLID'])
     # merkle_solidsex(combined_balances['solidSEX'])
