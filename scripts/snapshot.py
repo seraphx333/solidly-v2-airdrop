@@ -302,7 +302,19 @@ def step_07(allBalances):
     print("result", unburnedOxSolid)
     print()
 
-
+    unburnedVlOxd = OXD.balanceOf(VL_OXD_ADDRESS, block_identifier=SNAPSHOT_BLOCK) - merkleTotals['vlOXD']
+    print("vlOXD")
+    print("oxd.balanceOf(vlOxd)", OXD.balanceOf(VL_OXD_ADDRESS, block_identifier=SNAPSHOT_BLOCK))
+    print("merkleVlOxd", merkleTotals['vlOXD'])
+    print("result", unburnedVlOxd)
+    print()
+    
+    unburnedVlSex = SEX.balanceOf(VL_SEX_ADDRESS, block_identifier=SNAPSHOT_BLOCK) - merkleTotals['vlSEX']
+    print("vlSEX")
+    print("sex.balanceOf(vlSex)", SEX.balanceOf(VL_SEX_ADDRESS, block_identifier=SNAPSHOT_BLOCK))
+    print("merkleVlSex", merkleTotals['vlSEX'])
+    print("result", unburnedVlSex)
+    print()
 
     print("Distribute unburned veNFT:", unburnedNft / 10**18, multisigAuction)
     if allBalances['veNFT'].get(multisigAuction) == None:
@@ -314,15 +326,15 @@ def step_07(allBalances):
         allBalances['SOLID'][multisigAuction] = 0
     allBalances['SOLID'][multisigAuction] += unburnedSolid
     
-    print("Distribute unburned SEX:", unburnedSex / 10**18, multisigAirdrop)
+    print("Distribute unburned SEX:", (unburnedSex + unburnedVlSex) / 10**18, multisigAirdrop)
     if allBalances['SEX'].get(multisigAirdrop) == None:
         allBalances['SEX'][multisigAirdrop] = 0
-    allBalances['SEX'][multisigAirdrop] += unburnedSex
+    allBalances['SEX'][multisigAirdrop] += unburnedVlSex + unburnedSex
     
-    print("Distribute unburned OXD:", unburnedOxd / 10**18, multisigAirdrop)
+    print("Distribute unburned OXD:", (unburnedOxd + unburnedVlOxd) / 10**18, multisigAirdrop)
     if allBalances['OXD'].get(multisigAirdrop) == None:
         allBalances['OXD'][multisigAirdrop] = 0
-    allBalances['OXD'][multisigAirdrop] += unburnedOxd
+    allBalances['OXD'][multisigAirdrop] += unburnedVlOxd + unburnedOxd
     
     print("Distribute unburned oxSOLID:", unburnedOxSolid / 10**18, multisigAirdrop)
     if allBalances['oxSOLID'].get(multisigAirdrop) == None:
