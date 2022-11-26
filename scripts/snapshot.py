@@ -238,7 +238,7 @@ def step_06(allBalances):
         for user in balances:
             if user in remapAddressesLowerCase:
                 balance = balances[user]
-                print("Remapping balance", user, balance, token)
+                print("Remapping balance", user, token, balance)
                 allBalances[token][user] = 0
                 allBalances[token][recipient] += balance
     return sortBalances(allBalances)
