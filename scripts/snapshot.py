@@ -207,7 +207,7 @@ def step_05(allBalances, vloxd_balances, vlsex_balances):
 @cached('snapshot/06-remapped.toml')
 def step_06(allBalances):
     print('step 06. protocol remapping')
-    recipient = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5"
+    recipient = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     remapAddresses = [
         "0x5bDacBaE440A2F30af96147DE964CC97FE283305",
         "0xDA00eA1c3813658325243e7ABb1f1Cac628Eb582",
@@ -231,16 +231,16 @@ def step_06(allBalances):
         remapAddressesLowerCase.append(remapAddress.lower())
 
     for token in allBalances:
-        recipientCurrentBalance = allBalances[token].get(recipient.lower())
+        recipientCurrentBalance = allBalances[token].get(recipient)
         if recipientCurrentBalance == None:
-            allBalances[token][recipient.lower()] = 0
+            allBalances[token][recipient] = 0
         balances = allBalances[token]
         for user in balances:
             if user in remapAddressesLowerCase:
                 balance = balances[user]
                 print("Remapping balance", user, balance, token)
                 allBalances[token][user] = 0
-                allBalances[token][recipient.lower()] += balance
+                allBalances[token][recipient] += balance
     return sortBalances(allBalances)
     
 @cached('snapshot/07-with-unburned.toml')
