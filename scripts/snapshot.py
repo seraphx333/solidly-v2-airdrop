@@ -251,9 +251,28 @@ def step_04():
 @cached('snapshot/05-combined.toml')
 def step_05(allBalances, vloxd_balances, vlsex_balances):    
     print('step 05. aggregate data')
+    
+    # vlOXD
+    for user in vloxd_balances:
+        currentBalance = allBalances['OXD'].get(user)
+        if currentBalance == None:
+            allBalances['OXD'][user] = 0
+        balance = vloxd_balances[user]
+        allBalances['OXD'][user] += balance
+
+    # vlSEX
+    for user in vlsex_balances:
+        currentBalance = allBalances['SEX'].get(user)
+        if currentBalance == None:
+            allBalances['SEX'][user] = 0
+        balance = vlsex_balances[user]
+        allBalances['SEX'][user] += balance
+        
+    # Save balances even though they're already folded into OXD and SEX now for accounting purposes
     allBalances['vlOXD'] = vloxd_balances
     allBalances['vlSEX'] = vlsex_balances
-    return allBalances
+
+    return sortBalances(allBalances)
     
 @cached('snapshot/06-remapped.toml')
 def step_06(allBalances):
@@ -539,7 +558,6 @@ def merkle_oxd(balances):
 def merkle_sex(balances):
     return calculate_merkle_tree(balances)
 
-
 def main():
     balances_raw = step_01()
     balances_after_escrow = step_02(balances_raw)
@@ -555,5 +573,6 @@ def main():
     merkle_solidsex(delegated_balances['solidSEX'])
     merkle_oxd(delegated_balances['OXD'])
     merkle_sex(delegated_balances['SEX'])
-    merkle_oxsolid(delegated_balances['SOLID'])
+    merkle_solid(delegated_balances['SOLID'])
+    
     
