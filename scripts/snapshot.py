@@ -169,14 +169,14 @@ def step_01():
         if (burnedByAccount == None):
             burnMap[accountAddress] = {}
 
-        nftBurnedAmount = MIGRATION_BURN.veNftBurnedAmountByAccount(accountAddress)
+        nftBurnedAmount = int(MIGRATION_BURN.veNftBurnedAmountByAccount(accountAddress))
         if nftBurnedAmount > 0:
             burnMap[accountAddress][VENFT_ADDRESS] = nftBurnedAmount
             print("Found burn:", VENFT_ADDRESS, nftBurnedAmount)
             tokensBurned += 1
 
         for tokenAddress in tokensAddresses:
-            tokenBurnedAmount = MIGRATION_BURN.tokensBurnedByAccount(tokenAddress, accountAddress)
+            tokenBurnedAmount = int(MIGRATION_BURN.tokensBurnedByAccount(tokenAddress, accountAddress))
             if (tokenBurnedAmount > 0):
                 burnMap[accountAddress][tokenAddress] = tokenBurnedAmount
                 print("Found burn:", tokenAddress, tokenBurnedAmount)
