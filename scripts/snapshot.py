@@ -421,6 +421,8 @@ def step_07(allBalances):
 @cached('snapshot/08-with-unburned-part-2.toml')
 def step_08(allBalances):
     print("step 08. unburned balances - to 25")
+    # TODO: Implement
+    
     # multisigGeneral = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     # protocolsThatDidntBurn = [
     #     "0xffFfBBB50c131E664Ef375421094995C59808c97",
@@ -557,6 +559,18 @@ def merkle_oxd(balances):
 @cached('snapshot/merkle-sex-distribution.json')
 def merkle_sex(balances):
     return calculate_merkle_tree(balances)
+    
+@cached('snapshot/merkles.json')
+def build_merkles(balances):
+    print("building merkles...")
+    return {
+        "veNFT": merkle_venft(balances['veNFT']),
+        "oxSOLID": merkle_oxsolid(balances['oxSOLID']),
+        "solidSEX": merkle_solidsex(balances['solidSEX']),
+        "OXD": merkle_oxd(balances['OXD']),
+        "SEX": merkle_sex(balances['SEX']),
+        "SOLID": merkle_solid(balances['SOLID'])
+    }
 
 def main():
     balances_raw = step_01()
@@ -568,11 +582,6 @@ def main():
     remapped_and_unburned_balances_part_1 = step_07(remapped_balances)
     remapped_and_unburned_balances_part_2 = step_08(remapped_and_unburned_balances_part_1)
     delegated_balances = step_09(remapped_and_unburned_balances_part_2)
-    merkle_venft(delegated_balances['veNFT'])
-    merkle_oxsolid(delegated_balances['oxSOLID'])
-    merkle_solidsex(delegated_balances['solidSEX'])
-    merkle_oxd(delegated_balances['OXD'])
-    merkle_sex(delegated_balances['SEX'])
-    merkle_solid(delegated_balances['SOLID'])
+    build_merkles(delegated_balances)
     
     
