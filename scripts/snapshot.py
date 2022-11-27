@@ -416,7 +416,7 @@ def step_07(allBalances):
     if allBalances['solidSEX'].get(multisigAirdrop) == None:
         allBalances['solidSEX'][multisigAirdrop] = 0
     allBalances['solidSEX'][multisigAirdrop] += unburnedSolidSex
-    return allBalances
+    return sortBalances(allBalances)
 
 @cached('snapshot/08-with-unburned-part-2.toml')
 def step_08(allBalances):
@@ -456,7 +456,7 @@ def step_08(allBalances):
     #     print("veNFT:", veNftAmount / 10**18)
     #     print("vlSex:", vlSexBalance / 10**18)
     #     print()
-    return allBalances
+    return sortBalances(allBalances)
         
 
 @cached('snapshot/09-delegated-balances.toml')
@@ -465,21 +465,46 @@ def step_09(allBalances):
     response = requests.get(f'https://api.covalenthq.com/v1/250/address/{BURN_DELEGATOR_ADDRESS}/transactions_v2/?page-size=10000000&page-number=0', auth=("ckey_199659a1469f461296a1297de7c","")).json()
     items = response.get('data').get('items')
     for item in items:
+        # print(item)
+        # print()
         block = item.get('block_height')
         erc20Delegates = BURN_DELEGATOR.events.SetErc20Beneficiary.getLogs(fromBlock=block, toBlock=block)
         nftDelegates = BURN_DELEGATOR.events.SetVeNftBeneficiary.getLogs(fromBlock=block, toBlock=block)
+        burns = VE_NFT.events.Transfer.getLogs(fromBlock=block, toBlock=block)
+
+        # TODO: Account for internal burns
+        # for burn in burns:
+        #     if burn['args']['to'].lower() == BURN_ADDRESS.lower():
+        #         print("burn!!", burn)
+
         for delegate in erc20Delegates:
-            fromAddress = delegate['args']['from']
+            fromAddress = delegate['args']['from'].lower()
+            beneficiary = delegate['args']['beneficiary'].lower()
             tokenAddress = delegate['args']['tokenAddress']
-            beneficiary = delegate['args']['beneficiary']
-            print("Delegate ERC20 " + tokenAddress + " to " + beneficiary + " from " + fromAddress)
+            symbol = SYMBOLS.get(tokenAddress)
+            currentBeneficiaryBalance = allBalances[symbol].get(beneficiary)
+            if currentBeneficiaryBalance == None:
+                allBalances[symbol][beneficiary] = 0
+            allBalances[symbol][beneficiary] += allBalances[symbol][fromAddress]
+            allBalances[symbol][fromAddress] = 0
+            print("Delegate ERC20 " + symbol + " to " + beneficiary + " from " + fromAddress)
         for delegate in nftDelegates:
-            fromAddress = delegate['args']['from']
+            symbol = 'veNFT'
+            beneficiary = delegate['args']['beneficiary'].lower()
             tokenId = delegate['args']['tokenId']
-            beneficiary = delegate['args']['beneficiary']
-            print("Delegate NFT " + str(tokenId) + " to " + beneficiary + " from " + fromAddress)
-    
-    # TODO: Finish delegation
+            fromAddress = delegate['args']['from'].lower()
+            locked = VE_NFT.locked(tokenId, block_identifier=SNAPSHOT_BLOCK)[0]
+            currentBeneficiaryBalance = allBalances[symbol].get(beneficiary)
+            if currentBeneficiaryBalance == None:
+                allBalances[symbol][beneficiary] = 0
+            allBalances[symbol][beneficiary] += locked
+            allBalances[symbol][fromAddress] -= locked
+            
+            # TODO: Figure out what is going on with the 3 complex transactions. Yearn, Beefy, unknown
+            if allBalances[symbol][fromAddress] < 0:
+                allBalances[symbol][fromAddress] = 0
+            print("Delegate veNFT " + str(tokenId) + " to " + beneficiary + " from " + fromAddress)
+    return sortBalances(allBalances)
         
 class MerkleTree:
     def __init__(self, elements):
