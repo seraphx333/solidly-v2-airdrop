@@ -296,6 +296,7 @@ def step_06(allBalances):
     
 @cached('snapshot/07-with-unburned-part-1.toml')
 def step_07(allBalances):
+    print("step 07. unburned balances - all")
     multisigAirdrop = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     multisigAuction = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     merkleTotals = {}
@@ -400,6 +401,7 @@ def step_07(allBalances):
 
 @cached('snapshot/08-with-unburned-part-2.toml')
 def step_08(allBalances):
+    print("step 08. unburned balances - to 25")
     # multisigGeneral = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
     # protocolsThatDidntBurn = [
     #     "0xffFfBBB50c131E664Ef375421094995C59808c97",
@@ -438,6 +440,7 @@ def step_08(allBalances):
 
 @cached('snapshot/09-delegated-balances.toml')
 def step_09(allBalances):
+    print("step 09. delegated balances")
     response = requests.get(f'https://api.covalenthq.com/v1/250/address/{BURN_DELEGATOR_ADDRESS}/transactions_v2/?page-size=10000000&page-number=0', auth=("ckey_199659a1469f461296a1297de7c","")).json()
     items = response.get('data').get('items')
     for item in items:
@@ -454,6 +457,8 @@ def step_09(allBalances):
             tokenId = delegate['args']['tokenId']
             beneficiary = delegate['args']['beneficiary']
             print("Delegate NFT " + str(tokenId) + " to " + beneficiary + " from " + fromAddress)
+    
+    # TODO: Finish delegation
         
 class MerkleTree:
     def __init__(self, elements):
