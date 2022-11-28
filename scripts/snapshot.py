@@ -585,7 +585,7 @@ def merkle_oxd(balances):
 def merkle_sex(balances):
     return calculate_merkle_tree(balances)
     
-@cached('snapshot/merkles.json')
+@cached('snapshot/airdrop.json')
 def build_merkles(balances):
     print("building merkles...")
     return {
