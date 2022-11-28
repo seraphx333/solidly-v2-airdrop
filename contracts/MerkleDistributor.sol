@@ -39,10 +39,8 @@ contract MerkleDistributor is IMerkleDistributor {
         uint256 index,
         address account,
         uint256 amount,
-        bytes32[] calldata merkleProof,
-        uint256 tipBips
+        bytes32[] calldata merkleProof
     ) external override {
-        require(tipBips <= 10000);
         require(!isClaimed(index), "MerkleDistributor: Drop already claimed.");
 
         // Verify the merkle proof.
@@ -54,12 +52,10 @@ contract MerkleDistributor is IMerkleDistributor {
 
         // Mark it claimed and send the token.
         _setClaimed(index);
-        uint256 tip = account == msg.sender ? (amount * tipBips) / 10000 : 0;
         require(
-            IERC20(token).transfer(account, amount - tip),
+            IERC20(token).transfer(account, amount),
             "MerkleDistributor: Transfer failed."
         );
-        if (tip > 0) require(IERC20(token).transfer(deployer, tip));
 
         emit Claimed(index, account, amount);
     }
