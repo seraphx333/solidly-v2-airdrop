@@ -11,12 +11,12 @@ contract MerkleDistributor is IMerkleDistributor {
 
     // This is a packed array of booleans.
     mapping(uint256 => uint256) private claimedBitMap;
-    address deployer;
+    address governance;
 
     constructor(address token_, bytes32 merkleRoot_) public {
         token = token_;
         merkleRoot = merkleRoot_;
-        deployer = msg.sender;
+        governance = msg.sender;
     }
 
     function isClaimed(uint256 index) public view override returns (bool) {
@@ -60,14 +60,46 @@ contract MerkleDistributor is IMerkleDistributor {
         emit Claimed(index, account, amount);
     }
 
+    function claimFor(
+        uint256 index,
+        address account,
+        uint256 amount,
+        bytes32[] calldata merkleProof,
+        address recipient
+    ) external override {
+        require(msg.sender == governance, "!governance");
+        require(!isClaimed(index), "MerkleDistributor: Drop already claimed.");
+
+        // Verify the merkle proof.
+        bytes32 node = keccak256(abi.encodePacked(index, account, amount));
+        require(
+            MerkleProof.verify(merkleProof, merkleRoot, node),
+            "MerkleDistributor: Invalid proof."
+        );
+
+        // Mark it claimed and send the token.
+        _setClaimed(index);
+        require(
+            IERC20(token).transfer(recipient, amount),
+            "MerkleDistributor: Transfer failed."
+        );
+
+        emit Claimed(index, account, amount);
+    }
+
+    function transferGovernance(address governance_) external {
+        require(msg.sender == governance, "!governance");
+        governance = governance_;
+    }
+
     function collectDust(address _token, uint256 _amount) external {
-        require(msg.sender == deployer, "!deployer");
+        require(msg.sender == governance, "!governance");
         require(_token != token, "!token");
         if (_token == address(0)) {
             // token address(0) = ETH
-            payable(deployer).transfer(_amount);
+            payable(governance).transfer(_amount);
         } else {
-            IERC20(_token).transfer(deployer, _amount);
+            IERC20(_token).transfer(governance, _amount);
         }
     }
 }
