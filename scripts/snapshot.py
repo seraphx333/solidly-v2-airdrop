@@ -533,7 +533,7 @@ def step_08(allBalances):
 
 @cached('snapshot/9-with-unburned-part-2.toml')
 def step_09(allBalances):
-    print("step 09. unburned balances - to 25")
+    print("step 09. unburned balances - top 25")
     
     protocolsThatDidntBurnLowercase = []
     for remapAddress in REMAP_ADDRESSES:
@@ -564,23 +564,26 @@ def step_09(allBalances):
         print("solidSEX: ", solidSexTotal / 10**18)
         print("SOLID: ", solidTotal / 10**18)
         print("veNFT:", veNftTotal / 10**18)
-        # print("vlSex:", vlSexTotal / 10**18)
-        # print("vlOxd:", vlOxdTotal / 10**18)
         print()
         allBalances['OXD'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += oxdTotal
         allBalances['SEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += sexTotal
         allBalances['solidSEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += solidSexTotal
         allBalances['veNFT'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += veNftTotal
         allBalances['oxSOLID'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += oxSolidTotal
-        # allBalances['vlSEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += vlSexTotal
-        # allBalances['vlOXD'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += vlOxdTotal
+        
+        allBalances['OXD'][MULTISIG_AIRDROP_ADDRESS] -= oxdTotal
+        allBalances['SEX'][MULTISIG_AIRDROP_ADDRESS] -= sexTotal
+        allBalances['solidSEX'][MULTISIG_AIRDROP_ADDRESS] -= solidSexTotal
+        allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] -= veNftTotal
+        allBalances['oxSOLID'][MULTISIG_AIRDROP_ADDRESS] -= oxSolidTotal
+        
     return sortBalances(allBalances)
         
 
 @cached('snapshot/10-delegated-balances.toml')
 def step_10(allBalances):
     print("step 10. delegated balances")
-    response = requests.get(f'https://api.covalenthq.com/v1/250/address/{BURN_DELEGATOR_ADDRESS}/transactions_v2/?page-size=10000000&page-number=0', auth=("ckey_199659a1469f461296a1297de7c","")).json()
+    response = requests.get(f'https://api.covalenthq.com/v1/250/address/{BURN_DELEGATOR_ADDRESS}/transactions_v2/?page-size=1000&page-number=0', auth=("ckey_199659a1469f461296a1297de7c","")).json()
     items = response.get('data').get('items')
     for item in items:
         # print(item)
@@ -753,7 +756,7 @@ def main():
     balances_adjusted = step_02(balances_raw)
     balances_after_escrow = step_03(balances_adjusted)
     vloxd_balances = step_04()
-    vlsex = vlsex_balances = step_05()
+    vlsex_balances = step_05()
     combined_balances = step_06(balances_after_escrow, vloxd_balances, vlsex_balances)
     remapped_balances =step_07(combined_balances)
     remapped_and_unburned_balances_part_1 = step_08(remapped_balances)
