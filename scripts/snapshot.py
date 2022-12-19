@@ -6,14 +6,21 @@ from itertools import zip_longest
 from pathlib import Path
 import requests
 import toml
+from web3 import Web3
 from brownie import MerkleDistributor,  interface, web3, Contract
 from eth_abi.packed import encode_abi_packed
 from eth_utils import encode_hex
-from toolz import valfilter, valmap
+from toolz import valfilter
 from tqdm import trange
+
 
 # Snapshot block
 SNAPSHOT_BLOCK = 48892026
+SNAPSHOT_TIMESTAMP = 1665446399
+
+# Constants
+SECONDS_PER_DAY = 86400
+VALID_LOCK_START_BLOCK = 39600000
 
 # Addresses
 VENFT_ADDRESS = "0xcBd8fEa77c2452255f59743f55A3Ea9d83b3c72b"
@@ -31,8 +38,19 @@ BURN_DELEGATOR_ADDRESS = "0x15D5823b33Ad6c272274a8Dc61E617153AB1da1D"
 USER_PROXY_FACTORY_ADDRESS = "0xDA00Aad945d0d5F1B1b3FBb6E0ce3E36827A7bF5"
 SOLIDLY_LENS_ADDRESS = "0xDA0024F99A9889E8F48930614c27Ba41DD447c45"
 
+# Multisig
+MULTISIG_GENERAL_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+MULTISIG_AUCTION_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+MULTISIG_AIRDROP_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+MULTISIG_PARTNER_DISTRIBUTION_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+
 # Etherscan
-ETHERSCAN_API_KEY = 'EY9ZA3C2ECCMK1K9XDRG85VS4YRP9KBP9I'
+ETHERSCAN_API_KEY = "EY9ZA3C2ECCMK1K9XDRG85VS4YRP9KBP9I"
+
+# Staking
+SOLIDSEX_STAKING_ADDRESS = "0x7FcE87e203501C3a035CbBc5f0Ee72661976D6E1"
+SOLIDSEX_STAKING = Contract(SOLIDSEX_STAKING_ADDRESS)
+
 
 # Tokens
 SYMBOLS = {
@@ -53,6 +71,37 @@ TOKENS = {
     'vlOXD': VL_OXD_ADDRESS,
     'vlSEX': VL_SEX_ADDRESS
 }
+
+# Remapping
+REMAP_ADDRESSES = [
+    "0xa96D2F0978E317e7a97aDFf7b5A76F4600916021",
+    "0x95478C4F7D22D1048F46100001c2C69D2BA57380",
+    "0xC0E2830724C946a6748dDFE09753613cd38f6767",
+    "0x3293cB515Dbc8E0A8Ab83f1E5F5f3CC2F6bbc7ba",
+    "0xffFfBBB50c131E664Ef375421094995C59808c97",
+    "0x02517411F32ac2481753aD3045cA19D58e448A01",
+    "0xf332789fae0d1d6f058bfb040b3c060d76d06574",
+    "0xdFf234670038dEfB2115Cf103F86dA5fB7CfD2D2",
+    "0x0f2A144d711E7390d72BD474653170B201D504C8",
+    "0x224002428cF0BA45590e0022DF4b06653058F22F",
+    "0x26D70e4871EF565ef8C428e8782F1890B9255367",
+    "0xA5fC0BbfcD05827ed582869b7254b6f141BA84Eb",
+    "0x4D5362dd18Ea4Ba880c829B0152B7Ba371741E59",
+    "0x1e26D95599797f1cD24577ea91D99a9c97cf9C09",
+    "0xb4ad8B57Bd6963912c80FCbb6Baea99988543c1c",
+    "0xF9E7d4c6d36ca311566f46c81E572102A2DC9F52",
+    "0xE838c61635dd1D41952c68E47159329443283d90",
+    "0x111731A388743a75CF60CCA7b140C58e41D83635",
+    "0x0edfcc1b8d082cd46d13db694b849d7d8151c6d5",
+    "0xD0Bb8e4E4Dd5FDCD5D54f78263F5Ec8f33da4C95",
+    "0x9685c79e7572faF11220d0F3a1C1ffF8B74fDc65",
+    "0xa70b1d5956DAb595E47a1Be7dE8FaA504851D3c5",
+    "0x06917EFCE692CAD37A77a50B9BEEF6f4Cdd36422",
+    "0x5b0390bccCa1F040d8993eB6e4ce8DeD93721765",
+    "0x5180db0237291A6449DdA9ed33aD90a38787621c",
+    "0xb2c5548B8EF131921042fB989119d5801a850415",
+    "0x982828305ed415a1945b37b5bb5c8e752b9d5770"
+]
 
 # Contracts
 OXD = Contract(OXD_ADDRESS)
@@ -99,6 +148,23 @@ def usersByTokenTransfers(toAddress, tokenAddress):
     accountAddresses = [address for address in addressesMap.keys()]
     print("Found:", len(accountAddresses), "addresses")
     return accountAddresses
+    
+def blockHeightsForAddress(toAddress, fromBlock, toBlock):
+    page = 0
+    hasMoreResults = True
+    results = []
+    while hasMoreResults == True:
+        response = requests.get(f'https://api.covalenthq.com/v1/250/address/{toAddress}/transactions_v2/?&page-size=1000&page-number={page}', auth=("ckey_199659a1469f461296a1297de7c","")).json()
+        hasMoreResults = response.get('data').get('pagination').get('has_more')
+        items = response.get('data').get('items')
+        for item in items:
+            blockHeight = item.get('block_height')
+            if blockHeight <= toBlock and blockHeight >= fromBlock:
+                results.append(blockHeight)
+            if blockHeight < fromBlock:
+                hasMoreResults = False
+        page += 1
+    return results
 
 # Unique addresses
 def uniqueAddresses(transactions):
@@ -192,10 +258,33 @@ def step_01():
             balance = tokens[token]
             allBalances[tokenSymbol][user] = balance
     return sortBalances(allBalances)
-    
-@cached('snapshot/02-balances-after-escrow.toml')
+
+@cached('snapshot/02-nft-balances-adjusted.toml')
 def step_02(allBalances):
-    print("step 02. burning escrow")
+    for account in allBalances['veNFT']:
+        i = 0
+        nftsForOwner = []
+        accountTotal = 0
+        while True:
+            try:
+                nft = MIGRATION_BURN.veNftBurnedIdByIndex(account, i)
+                nftsForOwner.append(nft)
+                i += 1
+            except:
+                break
+        for nft in nftsForOwner:
+            locked = VE_NFT.locked(nft, block_identifier = SNAPSHOT_BLOCK)[0]
+            accountTotal += locked
+        print('account:', account)
+        print('nfts:', nftsForOwner)
+        print('locked:', accountTotal)
+        print()
+        allBalances['veNFT'][account] = accountTotal
+    return allBalances
+
+@cached('snapshot/03-balances-after-escrow.toml')
+def step_03(allBalances):
+    print("step 03. burning escrow")
     escrowBalanceBefore = allBalances['veNFT'].get(BURNING_ESCROW_ADDRESS.lower())
     escrowedNfts = BURNING_ESCROW.getEscrowedNfts()
     totalEscrowed = 0
@@ -213,9 +302,9 @@ def step_02(allBalances):
     assert escrowBalanceAfter == 0, "Invalid escrow balance after"
     return sortBalances(allBalances)
     
-@cached('snapshot/03-vloxd.toml')
-def step_03():
-    print('step 03. vlOXD')
+@cached('snapshot/04-vloxd.toml')
+def step_04():
+    print('step 04. vlOXD')
     users = usersByTokenTransfers(VL_OXD_ADDRESS, OXD_ADDRESS)
     balances = Counter()
     i = 0
@@ -227,30 +316,74 @@ def step_03():
             owner = interface.UserProxy(user).ownerAddress()
         else:
             owner = user
-        locked = VL_OXD.lockedBalanceOf(user, block_identifier = SNAPSHOT_BLOCK)
+        locked = VL_OXD.balanceOf(user, block_identifier = SNAPSHOT_BLOCK)
         if locked > 0:
             balances[owner] = int(locked)
             print("Found vlOXD balance:", owner, locked)
     return valfilter(bool, dict(balances.most_common()))
     
-@cached('snapshot/04-vlsex.toml')
-def step_04():
-    print('step 04. vlSEX')
-    users = usersByTokenTransfers(VL_SEX_ADDRESS, SEX_ADDRESS)
+@cached('snapshot/05-vlsex.toml')
+def step_05():
+    print('step 05. vlSEX')
+    users = {}
+    i = 0
+    blockHeights = blockHeightsForAddress(VL_SEX_ADDRESS, VALID_LOCK_START_BLOCK, SNAPSHOT_BLOCK)
+    for blockHeight in blockHeights:
+        print(str(i) + ' out of ' + str(len(blockHeights)))
+        i += 1
+        logs = VL_SEX.events.NewLock.getLogs(fromBlock=blockHeight, toBlock=blockHeight)
+        for log in logs:
+           user = log['args']['user']
+           users[user] = True
+        logs = VL_SEX.events.NewExitStream.getLogs(fromBlock=blockHeight, toBlock=blockHeight)
+        for log in logs:
+           user = log['args']['user']
+           users[user] = True
+        logs = VL_SEX.events.ExtendLock.getLogs(fromBlock=blockHeight, toBlock=blockHeight)
+        for log in logs:
+           user = log['args']['user']
+           users[user] = True
+           
+           
+    # users = {}
+    # for start in trange(VALID_LOCK_START_BLOCK, SNAPSHOT_BLOCK, 1000):
+    #     end = min(start + 999, SNAPSHOT_BLOCK)
+    #     logs = VL_SEX.events.NewLock.getLogs(fromBlock=start, toBlock=end)
+    #     for log in logs:
+    #        user = log['args']['user']
+    #        users[user] = True
+    # for start in trange(VALID_LOCK_START_BLOCK, SNAPSHOT_BLOCK, 1000):
+    #     end = min(start + 999, SNAPSHOT_BLOCK)
+    #     logs = VL_SEX.events.ExtendLock.getLogs(fromBlock=start, toBlock=end)
+    #     for log in logs:
+    #        user = log['args']['user']
+    #        users[user] = True
     balances = Counter()
     i = 0
     for user in users:
         i += 1
         print("Fetch vlSEX balances (" + str(i) + " of " + str(len(users)) + ")")
-        locked = VL_SEX.userBalance(user, block_identifier=SNAPSHOT_BLOCK)
-        if locked > 0:
-            balances[user] = int(locked)
-            print("Found vlSEX balance:", user, locked)
+        balance = VL_SEX.userBalance(user, block_identifier=SNAPSHOT_BLOCK)
+        weight = VL_SEX.userWeight(user, block_identifier=SNAPSHOT_BLOCK)
+        exitStream = VL_SEX.exitStream(user, block_identifier=SNAPSHOT_BLOCK)
+        start = exitStream[0]
+        amount = exitStream[1]
+        claimed = exitStream[2]
+        startTimestamp = SNAPSHOT_TIMESTAMP - (SECONDS_PER_DAY * 8)
+        if start >= startTimestamp:
+            amountLeft = amount - claimed
+            balances[user] += amountLeft
+        if balance > 0:
+            if weight > 0:
+                balances[user] += int(balance)
+            else:
+                balances[MULTISIG_GENERAL_ADDRESS] = int(balance)
+            print("Found vlSEX balance:", user, balance)
     return valfilter(bool, dict(balances.most_common()))
     
-@cached('snapshot/05-combined.toml')
-def step_05(allBalances, vloxd_balances, vlsex_balances):    
-    print('step 05. aggregate data')
+@cached('snapshot/06-combined.toml')
+def step_06(allBalances, vloxd_balances, vlsex_balances):    
+    print('step 06. aggregate data')
     
     # vlOXD
     for user in vloxd_balances:
@@ -274,30 +407,12 @@ def step_05(allBalances, vloxd_balances, vlsex_balances):
 
     return sortBalances(allBalances)
     
-@cached('snapshot/06-remapped.toml')
-def step_06(allBalances):
-    print('step 06. protocol remapping')
-    recipient = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
-    remapAddresses = [
-        "0x5bDacBaE440A2F30af96147DE964CC97FE283305",
-        "0xDA00eA1c3813658325243e7ABb1f1Cac628Eb582",
-        "0x825049dAD292A01078F065FeF2837E69b4f3A40F",
-        "0xC0E2830724C946a6748dDFE09753613cd38f6767",
-        "0x982828305Ed415A1945B37b5BB5c8E752B9d5770",
-        "0xdFf234670038dEfB2115Cf103F86dA5fB7CfD2D2",
-        "0x0f2A144d711E7390d72BD474653170B201D504C8",
-        "0xA5fC0BbfcD05827ed582869b7254b6f141BA84Eb",
-        "0x4D5362dd18Ea4Ba880c829B0152B7Ba371741E59",
-        "0xb4ad8B57Bd6963912c80FCbb6Baea99988543c1c",
-        "0xE838c61635dd1D41952c68E47159329443283d90",
-        "0x5180db0237291A6449DdA9ed33aD90a38787621c",
-        "0x111731A388743a75CF60CCA7b140C58e41D83635",
-        "0x9685c79e7572faF11220d0F3a1C1ffF8B74fDc65",
-        "0x06917EFCE692CAD37A77a50B9BEEF6f4Cdd36422",
-        "0x5b0390bccCa1F040d8993eB6e4ce8DeD93721765"
-    ]
+@cached('snapshot/07-remapped.toml')
+def step_07(allBalances):
+    print('step 07. protocol remapping')
+    recipient = MULTISIG_PARTNER_DISTRIBUTION_ADDRESS
     remapAddressesLowerCase = []
-    for remapAddress in remapAddresses:
+    for remapAddress in REMAP_ADDRESSES:
         remapAddressesLowerCase.append(remapAddress.lower())
 
     for token in allBalances:
@@ -313,11 +428,9 @@ def step_06(allBalances):
                 allBalances[token][recipient] += balance
     return sortBalances(allBalances)
     
-@cached('snapshot/07-with-unburned-part-1.toml')
-def step_07(allBalances):
-    print("step 07. unburned balances - all")
-    multisigAirdrop = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
-    multisigAuction = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+@cached('snapshot/08-with-unburned-part-1.toml')
+def step_08(allBalances):
+    print("step 08. unburned balances - all")
     merkleTotals = {}
 
     # Calculate merkle totals
@@ -387,81 +500,86 @@ def step_07(allBalances):
     print("result", unburnedVlSex)
     print()
 
-    print("Distribute unburned veNFT:", unburnedNft / 10**18, multisigAuction)
-    if allBalances['veNFT'].get(multisigAuction) == None:
-        allBalances['veNFT'][multisigAuction] = 0
-    allBalances['veNFT'][multisigAuction] += unburnedNft
+    print("Distribute unburned veNFT:", unburnedNft / 10**18, MULTISIG_AUCTION_ADDRESS)
+    if allBalances['veNFT'].get(MULTISIG_AUCTION_ADDRESS) == None:
+        allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] = 0
+    allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] += unburnedNft
 
-    print("Distribute unburned SOLID:", unburnedSolid / 10**18, multisigAuction)
-    if allBalances['SOLID'].get(multisigAuction) == None:
-        allBalances['SOLID'][multisigAuction] = 0
-    allBalances['SOLID'][multisigAuction] += unburnedSolid
+    print("Distribute unburned SOLID:", unburnedSolid / 10**18, MULTISIG_AUCTION_ADDRESS)
+    if allBalances['SOLID'].get(MULTISIG_AUCTION_ADDRESS) == None:
+        allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] = 0
+    allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] += unburnedSolid
     
-    print("Distribute unburned SEX:", (unburnedSex + unburnedVlSex) / 10**18, multisigAirdrop)
-    if allBalances['SEX'].get(multisigAirdrop) == None:
-        allBalances['SEX'][multisigAirdrop] = 0
-    allBalances['SEX'][multisigAirdrop] += unburnedVlSex + unburnedSex
+    print("Distribute unburned SEX:", (unburnedSex + unburnedVlSex) / 10**18, MULTISIG_AIRDROP_ADDRESS)
+    if allBalances['SEX'].get(MULTISIG_AIRDROP_ADDRESS) == None:
+        allBalances['SEX'][MULTISIG_AIRDROP_ADDRESS] = 0
+    allBalances['SEX'][MULTISIG_AIRDROP_ADDRESS] += unburnedVlSex + unburnedSex
     
-    print("Distribute unburned OXD:", (unburnedOxd + unburnedVlOxd) / 10**18, multisigAirdrop)
-    if allBalances['OXD'].get(multisigAirdrop) == None:
-        allBalances['OXD'][multisigAirdrop] = 0
-    allBalances['OXD'][multisigAirdrop] += unburnedVlOxd + unburnedOxd
+    print("Distribute unburned OXD:", (unburnedOxd + unburnedVlOxd) / 10**18, MULTISIG_AIRDROP_ADDRESS)
+    if allBalances['OXD'].get(MULTISIG_AIRDROP_ADDRESS) == None:
+        allBalances['OXD'][MULTISIG_AIRDROP_ADDRESS] = 0
+    allBalances['OXD'][MULTISIG_AIRDROP_ADDRESS] += unburnedVlOxd + unburnedOxd
     
-    print("Distribute unburned oxSOLID:", unburnedOxSolid / 10**18, multisigAirdrop)
-    if allBalances['oxSOLID'].get(multisigAirdrop) == None:
-        allBalances['oxSOLID'][multisigAirdrop] = 0
-    allBalances['oxSOLID'][multisigAirdrop] += unburnedOxSolid
+    print("Distribute unburned oxSOLID:", unburnedOxSolid / 10**18, MULTISIG_AIRDROP_ADDRESS)
+    if allBalances['oxSOLID'].get(MULTISIG_AIRDROP_ADDRESS) == None:
+        allBalances['oxSOLID'][MULTISIG_AIRDROP_ADDRESS] = 0
+    allBalances['oxSOLID'][MULTISIG_AIRDROP_ADDRESS] += unburnedOxSolid
     
-    print("Distribute unburned solidSEX:", unburnedSolidSex / 10**18, multisigAirdrop)
-    if allBalances['solidSEX'].get(multisigAirdrop) == None:
-        allBalances['solidSEX'][multisigAirdrop] = 0
-    allBalances['solidSEX'][multisigAirdrop] += unburnedSolidSex
+    print("Distribute unburned solidSEX:", unburnedSolidSex / 10**18, MULTISIG_AIRDROP_ADDRESS)
+    if allBalances['solidSEX'].get(MULTISIG_AIRDROP_ADDRESS) == None:
+        allBalances['solidSEX'][MULTISIG_AIRDROP_ADDRESS] = 0
+    allBalances['solidSEX'][MULTISIG_AIRDROP_ADDRESS] += unburnedSolidSex
     return sortBalances(allBalances)
 
-@cached('snapshot/08-with-unburned-part-2.toml')
-def step_08(allBalances):
-    print("step 08. unburned balances - to 25")
-    # TODO: Implement
+@cached('snapshot/9-with-unburned-part-2.toml')
+def step_09(allBalances):
+    print("step 09. unburned balances - to 25")
     
-    # multisigGeneral = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
-    # protocolsThatDidntBurn = [
-    #     "0xffFfBBB50c131E664Ef375421094995C59808c97",
-    #     "0x02517411F32ac2481753aD3045cA19D58e448A01",
-    #     "0x224002428cF0BA45590e0022DF4b06653058F22F",
-    #     "0x26D70e4871EF565ef8C428e8782F1890B9255367",
-    #     "0xF9E7d4c6d36ca311566f46c81E572102A2DC9F52",
-    #     "0xa70b1d5956DAb595E47a1Be7dE8FaA504851D3c5",
-    #     "0xb2c5548B8EF131921042fB989119d5801a850415"
-    # ]
-    # protocolsThatDidntBurnLowercase = []
-    # for remapAddress in protocolsThatDidntBurn:
-    #     protocolsThatDidntBurnLowercase.append(remapAddress.lower())
-    # for protocol in protocolsThatDidntBurnLowercase:
-    #     sexBalance = SEX.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
-    #     oxdBalance = OXD.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
-    #     oxSolidBalance = OX_SOLID.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
-    #     solidSexBalance = SOLID_SEX.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
-    #     solidBalance = SOLID.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
-    #     vlSexBalance = VL_SEX.userBalance(protocol, block_identifier=SNAPSHOT_BLOCK)
-    #     veNftAmount = 0
-    #     tokenIds = SOLIDLY_LENS.veTokensIdsOf(protocol)
-    #     for tokenId in tokenIds:
-    #         veNftAmount += VE_NFT.locked(tokenId)[0]
-    #     print("Protocol: " + protocol)
-    #     print("SEX: ", sexBalance / 10**18)
-    #     print("OXD: ", oxdBalance / 10**18)
-    #     print("oxSOLID: ", oxSolidBalance / 10**18)
-    #     print("solidSEX: ", solidSexBalance / 10**18)
-    #     print("SOLID: ", solidBalance / 10**18)
-    #     print("veNFT:", veNftAmount / 10**18)
-    #     print("vlSex:", vlSexBalance / 10**18)
-    #     print()
+    protocolsThatDidntBurnLowercase = []
+    for remapAddress in REMAP_ADDRESSES:
+        protocolsThatDidntBurnLowercase.append(remapAddress.lower())
+    for protocol in protocolsThatDidntBurnLowercase:
+        sexBalance = SEX.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
+        oxdTotal = OXD.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
+        oxSolidTotal = OX_SOLID.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
+        solidSexBalance = SOLID_SEX.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
+        solidBalance = SOLID.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
+        # vlSexTotal = VL_SEX.userBalance(protocol, block_identifier=SNAPSHOT_BLOCK)
+        # vlOxdTotal = VL_OXD.balanceOf(protocol, block_identifier = SNAPSHOT_BLOCK)
+        veNftTotal = 0
+        tokenIds = SOLIDLY_LENS.veTokensIdsOf(protocol)
+        for tokenId in tokenIds:
+            veNftTotal += VE_NFT.locked(tokenId)[0]
+            
+        solidSexStake = SOLIDSEX_STAKING.balanceOf(protocol, block_identifier=SNAPSHOT_BLOCK)
+        sexEarned = SOLIDSEX_STAKING.earned(protocol, SEX_ADDRESS, block_identifier=SNAPSHOT_BLOCK)
+        solidEarned = SOLIDSEX_STAKING.earned(protocol, SOLID_ADDRESS, block_identifier=SNAPSHOT_BLOCK)
+        sexTotal = sexBalance + sexEarned
+        solidSexTotal = solidSexBalance + solidSexStake
+        solidTotal = solidBalance + solidEarned
+        print("Protocol: " + protocol)
+        print("SEX: ", sexTotal / 10**18)
+        print("OXD: ", oxdTotal / 10**18)
+        print("oxSOLID: ", oxSolidTotal / 10**18)
+        print("solidSEX: ", solidSexTotal / 10**18)
+        print("SOLID: ", solidTotal / 10**18)
+        print("veNFT:", veNftTotal / 10**18)
+        # print("vlSex:", vlSexTotal / 10**18)
+        # print("vlOxd:", vlOxdTotal / 10**18)
+        print()
+        allBalances['OXD'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += oxdTotal
+        allBalances['SEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += sexTotal
+        allBalances['solidSEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += solidSexTotal
+        allBalances['veNFT'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += veNftTotal
+        allBalances['oxSOLID'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += oxSolidTotal
+        # allBalances['vlSEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += vlSexTotal
+        # allBalances['vlOXD'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += vlOxdTotal
     return sortBalances(allBalances)
         
 
-@cached('snapshot/09-delegated-balances.toml')
-def step_09(allBalances):
-    print("step 09. delegated balances")
+@cached('snapshot/10-delegated-balances.toml')
+def step_10(allBalances):
+    print("step 10. delegated balances")
     response = requests.get(f'https://api.covalenthq.com/v1/250/address/{BURN_DELEGATOR_ADDRESS}/transactions_v2/?page-size=10000000&page-number=0', auth=("ckey_199659a1469f461296a1297de7c","")).json()
     items = response.get('data').get('items')
     for item in items:
@@ -506,6 +624,39 @@ def step_09(allBalances):
             print("Delegate veNFT " + str(tokenId) + " to " + beneficiary + " from " + fromAddress)
     return sortBalances(allBalances)
         
+@cached('snapshot/11-checksummed-totals.toml')
+def step_11(allBalances):
+    for token in allBalances:
+        balances = allBalances[token]
+        
+        # First find all addresses with no checksums
+        usersWithoutChecksums = []
+        for user in balances:
+            checksum = Web3.toChecksumAddress(user)
+            if user != checksum:
+                usersWithoutChecksums.append(user)
+                
+        # For every user without a checksum, check to see if corresponding checksum address exists
+        # If not, make one and set initial balnace to zero
+        for user in usersWithoutChecksums:
+            checksum = Web3.toChecksumAddress(user)
+            checksumVal = allBalances[token].get(checksum)
+            if checksumVal is None:
+                allBalances[token][checksum] = 0
+                
+        # For every user, if the user is a non-checksum address, add non-checksum balance to checksum user
+        balances = allBalances[token]
+        for user in balances:
+            checksum = Web3.toChecksumAddress(user)
+            if user != checksum:
+                allBalances[token][checksum] += allBalances[token][user]
+                
+        # Delete all non-checksum users
+        for user in usersWithoutChecksums:
+            del allBalances[token][user]
+    return sortBalances(allBalances)
+
+
 class MerkleTree:
     def __init__(self, elements):
         self.elements = sorted(set(web3.keccak(hexstr=el) for el in elements))
@@ -599,14 +750,18 @@ def build_merkles(balances):
 
 def main():
     balances_raw = step_01()
-    balances_after_escrow = step_02(balances_raw)
-    vloxd_balances = step_03()
-    vlsex_balances = step_04()
-    combined_balances = step_05(balances_after_escrow, vloxd_balances, vlsex_balances)
-    remapped_balances =step_06(combined_balances)
-    remapped_and_unburned_balances_part_1 = step_07(remapped_balances)
-    remapped_and_unburned_balances_part_2 = step_08(remapped_and_unburned_balances_part_1)
-    delegated_balances = step_09(remapped_and_unburned_balances_part_2)
-    build_merkles(delegated_balances)
+    balances_adjusted = step_02(balances_raw)
+    balances_after_escrow = step_03(balances_adjusted)
+    vloxd_balances = step_04()
+    vlsex = vlsex_balances = step_05()
+    for i in vlsex:
+        print(i.lower() +','+str(vlsex[i]))
+    combined_balances = step_06(balances_after_escrow, vloxd_balances, vlsex_balances)
+    remapped_balances =step_07(combined_balances)
+    remapped_and_unburned_balances_part_1 = step_08(remapped_balances)
+    remapped_and_unburned_balances_part_2 = step_09(remapped_and_unburned_balances_part_1)
+    delegated_balances = step_10(remapped_and_unburned_balances_part_2)
+    checksummed_balances = step_11(delegated_balances)
+    build_merkles(checksummed_balances)
     
     

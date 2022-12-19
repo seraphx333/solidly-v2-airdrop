@@ -17,7 +17,7 @@ def main():
 
     owner = accounts.load("c301")
     for tokenSymbol in tokens:
-        print('token', tokenSymbol)
+        # print('token', tokenSymbol)
         tree = rootTree[tokenSymbol]
         amount = int(tree['tokenTotal'], 16)
         token = Contract(tokens[tokenSymbol])
@@ -26,7 +26,7 @@ def main():
             print("Minting", tokenSymbol, amount - token.balanceOf(owner))
             if tokenSymbol != 'SOLID' and tokenSymbol != 'veNFT': # Deployer is not minter :(
                 token.mint(owner, amount - token.balanceOf(owner), {"from": owner})
-        print("Deploying merkle distributor", tokenSymbol, token.address, tree['merkleRoot'])
-        if tokenSymbol != 'veNFT':
-            distributor = MerkleDistributor.deploy(token.address, tree['merkleRoot'], {'from': owner})
-            token.transfer(distributor, amount, {'from': owner})
+        print(tokenSymbol, token.address, tree['merkleRoot'], amount)
+        # if tokenSymbol != 'veNFT':
+        #     distributor = MerkleDistributor.deploy(token.address, tree['merkleRoot'], {'from': owner})
+        #     token.transfer(distributor, amount, {'from': owner})
