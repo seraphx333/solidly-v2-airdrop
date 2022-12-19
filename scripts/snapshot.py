@@ -754,8 +754,6 @@ def main():
     balances_after_escrow = step_03(balances_adjusted)
     vloxd_balances = step_04()
     vlsex = vlsex_balances = step_05()
-    for i in vlsex:
-        print(i.lower() +','+str(vlsex[i]))
     combined_balances = step_06(balances_after_escrow, vloxd_balances, vlsex_balances)
     remapped_balances =step_07(combined_balances)
     remapped_and_unburned_balances_part_1 = step_08(remapped_balances)
