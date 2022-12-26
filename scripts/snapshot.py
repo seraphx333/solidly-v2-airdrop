@@ -502,15 +502,15 @@ def step_08(allBalances):
     print("result", unburnedVlSex)
     print()
 
-    print("Distribute unburned veNFT:", unburnedNft / 10**18, MULTISIG_AIRDROP_ADDRESS)
-    if allBalances['veNFT'].get(MULTISIG_AIRDROP_ADDRESS) == None:
-        allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] = 0
-    allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] += unburnedNft
+    print("Distribute unburned veNFT:", unburnedNft / 10**18, MULTISIG_AUCTION_ADDRESS)
+    if allBalances['veNFT'].get(MULTISIG_AUCTION_ADDRESS) == None:
+        allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] = 0
+    allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] += unburnedNft
 
-    print("Distribute unburned SOLID:", unburnedSolid / 10**18, MULTISIG_AIRDROP_ADDRESS)
-    if allBalances['SOLID'].get(MULTISIG_AIRDROP_ADDRESS) == None:
-        allBalances['SOLID'][MULTISIG_AIRDROP_ADDRESS] = 0
-    allBalances['SOLID'][MULTISIG_AIRDROP_ADDRESS] += unburnedSolid
+    print("Distribute unburned SOLID:", unburnedSolid / 10**18, MULTISIG_AUCTION_ADDRESS)
+    if allBalances['SOLID'].get(MULTISIG_AUCTION_ADDRESS) == None:
+        allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] = 0
+    allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] += unburnedSolid
     
     print("Distribute unburned SEX:", (unburnedSex + unburnedVlSex) / 10**18, MULTISIG_AIRDROP_ADDRESS)
     if allBalances['SEX'].get(MULTISIG_AIRDROP_ADDRESS) == None:
