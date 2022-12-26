@@ -576,6 +576,8 @@ def step_09(allBalances):
         allBalances['OXD'][MULTISIG_AIRDROP_ADDRESS] -= oxdTotal
         allBalances['SEX'][MULTISIG_AIRDROP_ADDRESS] -= sexTotal
         allBalances['solidSEX'][MULTISIG_AIRDROP_ADDRESS] -= solidSexTotal
+        if allBalances['veNFT'].get(MULTISIG_AIRDROP_ADDRESS) is None:
+            allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] = 0
         allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] -= veNftTotal
         allBalances['oxSOLID'][MULTISIG_AIRDROP_ADDRESS] -= oxSolidTotal
         
