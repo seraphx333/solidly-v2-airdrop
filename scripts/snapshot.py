@@ -39,10 +39,12 @@ USER_PROXY_FACTORY_ADDRESS = "0xDA00Aad945d0d5F1B1b3FBb6E0ce3E36827A7bF5"
 SOLIDLY_LENS_ADDRESS = "0xDA0024F99A9889E8F48930614c27Ba41DD447c45"
 
 # Multisig
-MULTISIG_GENERAL_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
-MULTISIG_AUCTION_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
-MULTISIG_AIRDROP_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
-MULTISIG_PARTNER_DISTRIBUTION_ADDRESS = "0x238f1c0AF2f853ab392355516C3b8a0db5B959e5".lower()
+MULTISIG_TEAM_ADDRESS = "0x0000000000000000000000000000000000000001".lower()
+MULTISIG_AUCTION_ADDRESS = "0x0000000000000000000000000000000000000002".lower()
+MULTISIG_AIRDROP_ADDRESS = "0x0000000000000000000000000000000000000003".lower()
+MULTISIG_PARTNER_ADDRESS= "0x0000000000000000000000000000000000000004".lower()
+MULTISIG_MONOLITH_ADDRESS = "0x0000000000000000000000000000000000000005".lower()
+
 
 # Etherscan
 ETHERSCAN_API_KEY = "EY9ZA3C2ECCMK1K9XDRG85VS4YRP9KBP9I"
@@ -377,7 +379,7 @@ def step_05():
             if weight > 0:
                 balances[user] += int(balance)
             else:
-                balances[MULTISIG_GENERAL_ADDRESS] = int(balance)
+                balances[MULTISIG_TEAM_ADDRESS] = int(balance)
             print("Found vlSEX balance:", user, balance)
     return valfilter(bool, dict(balances.most_common()))
     
@@ -410,7 +412,7 @@ def step_06(allBalances, vloxd_balances, vlsex_balances):
 @cached('snapshot/07-remapped.toml')
 def step_07(allBalances):
     print('step 07. protocol remapping')
-    recipient = MULTISIG_PARTNER_DISTRIBUTION_ADDRESS
+    recipient = MULTISIG_PARTNER_ADDRESS
     remapAddressesLowerCase = []
     for remapAddress in REMAP_ADDRESSES:
         remapAddressesLowerCase.append(remapAddress.lower())
@@ -565,11 +567,11 @@ def step_09(allBalances):
         print("SOLID: ", solidTotal / 10**18)
         print("veNFT:", veNftTotal / 10**18)
         print()
-        allBalances['OXD'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += oxdTotal
-        allBalances['SEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += sexTotal
-        allBalances['solidSEX'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += solidSexTotal
-        allBalances['veNFT'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += veNftTotal
-        allBalances['oxSOLID'][MULTISIG_PARTNER_DISTRIBUTION_ADDRESS] += oxSolidTotal
+        allBalances['OXD'][MULTISIG_PARTNER_ADDRESS] += oxdTotal
+        allBalances['SEX'][MULTISIG_PARTNER_ADDRESS] += sexTotal
+        allBalances['solidSEX'][MULTISIG_PARTNER_ADDRESS] += solidSexTotal
+        allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] += veNftTotal
+        allBalances['oxSOLID'][MULTISIG_PARTNER_ADDRESS] += oxSolidTotal
         
         allBalances['OXD'][MULTISIG_AIRDROP_ADDRESS] -= oxdTotal
         allBalances['SEX'][MULTISIG_AIRDROP_ADDRESS] -= sexTotal
@@ -579,14 +581,72 @@ def step_09(allBalances):
         
     return sortBalances(allBalances)
         
-
-@cached('snapshot/10-delegated-balances.toml')
+@cached('snapshot/10-shifted-balances.toml')
 def step_10(allBalances):
-    print("step 10. delegated balances")
+    print("step 10. shifting final balances")
+    solidexAddress = "0x26e1a0d851cf28e697870e1b7f053b605c8b060f"
+    oxdaoAddress = "0xda00ea1c3813658325243e7abb1f1cac628eb582"
+
+    # Initialize
+    if allBalances['veNFT'].get(MULTISIG_MONOLITH_ADDRESS) is None:
+        allBalances['veNFT'][MULTISIG_MONOLITH_ADDRESS] = 0
+    if allBalances['veNFT'].get(MULTISIG_PARTNER_ADDRESS) is None:
+        allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] = 0
+    if allBalances['oxSOLID'].get(MULTISIG_PARTNER_ADDRESS) is None:
+        allBalances['oxSOLID'][MULTISIG_PARTNER_ADDRESS] = 0
+    if allBalances['SOLID'].get(MULTISIG_PARTNER_ADDRESS) is None:
+        allBalances['SOLID'][MULTISIG_PARTNER_ADDRESS] = 0
+    if allBalances['solidSEX'].get(MULTISIG_PARTNER_ADDRESS) is None:
+        allBalances['solidSEX'][MULTISIG_PARTNER_ADDRESS] = 0
+    if allBalances['SOLID'].get(MULTISIG_TEAM_ADDRESS) is None:
+        allBalances['SOLID'][MULTISIG_TEAM_ADDRESS] = 0
+    if allBalances['veNFT'].get(MULTISIG_TEAM_ADDRESS) is None:
+        allBalances['veNFT'][MULTISIG_TEAM_ADDRESS] = 0
+
+    # Solidex
+    print("Transfering balance of", solidexAddress, "(Solidex) to", MULTISIG_MONOLITH_ADDRESS)
+    veSOLIDamount = VE_NFT.locked(8, block_identifier=SNAPSHOT_BLOCK)[0]
+    print("Detected", veSOLIDamount, "Solidex NFT")
+    allBalances['veNFT'][MULTISIG_MONOLITH_ADDRESS] += veSOLIDamount
+    allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] -= veSOLIDamount
+
+    # 0xDAO
+    print("Transfering balance of", oxdaoAddress, "(0xDAO) to", MULTISIG_MONOLITH_ADDRESS)
+    veSOLIDamount = allBalances['veNFT'][oxdaoAddress]
+    print("Detected", veSOLIDamount, "0xDAO NFT")
+    allBalances['veNFT'][MULTISIG_MONOLITH_ADDRESS] += veSOLIDamount
+    allBalances['veNFT'][oxdaoAddress] -= veSOLIDamount
+
+    # Splitting burned & unburned partner NFTs from Monolith
+    oxSOLIDamount = allBalances['oxSOLID'][MULTISIG_PARTNER_ADDRESS]
+    SOLIDsexamount = allBalances['solidSEX'][MULTISIG_PARTNER_ADDRESS]
+    DERIVATIVEamount = oxSOLIDamount + SOLIDsexamount
+
+    allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] += DERIVATIVEamount
+    allBalances['veNFT'][MULTISIG_MONOLITH_ADDRESS] -= DERIVATIVEamount
+
+    allBalances['oxSOLID'][MULTISIG_PARTNER_ADDRESS] -= oxSOLIDamount
+    allBalances['solidSEX'][MULTISIG_PARTNER_ADDRESS] -= SOLIDsexamount
+
+    # Shift liquid SOLID from partner fund to team Multisig for Genesis Pool
+    SHIFTsolid = allBalances['SOLID'][MULTISIG_PARTNER_ADDRESS]
+    allBalances['SOLID'][MULTISIG_TEAM_ADDRESS] += SHIFTsolid
+    allBalances['SOLID'][MULTISIG_PARTNER_ADDRESS] -= SHIFTsolid
+
+    # Shift 2m veSOLID from partner fund to team Multisig (team allocation)
+    SHIFTvesolid = 2000000*10**18
+    allBalances['veNFT'][MULTISIG_TEAM_ADDRESS] += SHIFTvesolid
+    allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] -= SHIFTvesolid
+
+    return sortBalances(allBalances)
+
+@cached('snapshot/11-delegated-balances.toml')
+def step_11(allBalances):
+    print("step 11. delegated balances")
     response = requests.get(f'https://api.covalenthq.com/v1/250/address/{BURN_DELEGATOR_ADDRESS}/transactions_v2/?page-size=1000&page-number=0', auth=("ckey_199659a1469f461296a1297de7c","")).json()
     items = response.get('data').get('items')
     for item in items:
-        # print(item)
+        print(item)
         # print()
         block = item.get('block_height')
         erc20Delegates = BURN_DELEGATOR.events.SetErc20Beneficiary.getLogs(fromBlock=block, toBlock=block)
@@ -627,8 +687,8 @@ def step_10(allBalances):
             print("Delegate veNFT " + str(tokenId) + " to " + beneficiary + " from " + fromAddress)
     return sortBalances(allBalances)
         
-@cached('snapshot/11-checksummed-totals.toml')
-def step_11(allBalances):
+@cached('snapshot/12-checksummed-totals.toml')
+def step_12(allBalances):
     for token in allBalances:
         balances = allBalances[token]
         
@@ -761,8 +821,9 @@ def main():
     remapped_balances =step_07(combined_balances)
     remapped_and_unburned_balances_part_1 = step_08(remapped_balances)
     remapped_and_unburned_balances_part_2 = step_09(remapped_and_unburned_balances_part_1)
-    delegated_balances = step_10(remapped_and_unburned_balances_part_2)
-    checksummed_balances = step_11(delegated_balances)
+    shifted_balances = step_10(remapped_and_unburned_balances_part_2)
+    delegated_balances = step_11(shifted_balances)
+    checksummed_balances = step_12(delegated_balances)
     build_merkles(checksummed_balances)
     
     
