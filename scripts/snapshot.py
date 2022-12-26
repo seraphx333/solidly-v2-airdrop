@@ -570,21 +570,21 @@ def step_09(allBalances):
         allBalances['OXD'][MULTISIG_PARTNER_ADDRESS] += oxdTotal
         allBalances['SEX'][MULTISIG_PARTNER_ADDRESS] += sexTotal
         allBalances['solidSEX'][MULTISIG_PARTNER_ADDRESS] += solidSexTotal
-        if allBalances['veNFT'].get(MULTISIG_AUCTION_ADDRESS) is None:
-            allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] = 0
-        if allBalances['SOLID'].get(MULTISIG_AUCTION_ADDRESS) is None:
-            allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] = 0
-        allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] += veNftTotal
-        allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] += solidTotal
+        if allBalances['veNFT'].get(MULTISIG_PARTNER_ADDRESS) is None:
+            allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] = 0
+        if allBalances['SOLID'].get(MULTISIG_PARTNER_ADDRESS) is None:
+            allBalances['SOLID'][MULTISIG_PARTNER_ADDRESS] = 0
+        allBalances['veNFT'][MULTISIG_PARTNER_ADDRESS] += veNftTotal
+        allBalances['SOLID'][MULTISIG_PARTNER_ADDRESS] += solidTotal
         allBalances['oxSOLID'][MULTISIG_PARTNER_ADDRESS] += oxSolidTotal
         
         allBalances['OXD'][MULTISIG_AIRDROP_ADDRESS] -= oxdTotal
         allBalances['SEX'][MULTISIG_AIRDROP_ADDRESS] -= sexTotal
         allBalances['solidSEX'][MULTISIG_AIRDROP_ADDRESS] -= solidSexTotal
-        if allBalances['veNFT'].get(MULTISIG_AIRDROP_ADDRESS) is None:
-            allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] = 0
-        allBalances['veNFT'][MULTISIG_AIRDROP_ADDRESS] -= veNftTotal
-        allBalances['SOLID'][MULTISIG_AIRDROP_ADDRESS] -= solidTotal
+        if allBalances['veNFT'].get(MULTISIG_AUCTION_ADDRESS) is None:
+            allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] = 0
+        allBalances['veNFT'][MULTISIG_AUCTION_ADDRESS] -= veNftTotal
+        allBalances['SOLID'][MULTISIG_AUCTION_ADDRESS] -= solidTotal
         allBalances['oxSOLID'][MULTISIG_AIRDROP_ADDRESS] -= oxSolidTotal
         
     return sortBalances(allBalances)
